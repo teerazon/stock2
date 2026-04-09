@@ -1,17 +1,17 @@
-// supabase-client.js
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-// ค่าเหล่านี้ถูก inject โดย build.js จาก Vercel Environment Variables
+// ดึงค่าจาก window ที่ตั้งไว้ใน index.html
+const supabaseUrl = window.ENV_SUPABASE_URL;
+const supabaseAnonKey = window.ENV_SUPABASE_ANON_KEY;
 
-// ชื่อ Storage bucket (ต้องตรงกับที่สร้างใน Supabase Storage)
 export const STORAGE_BUCKET = 'product-images';
 
-// ตรวจสอบว่า env vars ถูกตั้งค่าแล้ว
-if (!supabaseUrl || supabaseUrl.startsWith('%%')) {
-  console.error('⚠️ ไม่พบ SUPABASE_URL — ตรวจสอบ Vercel Environment Variables');
+// ตรวจสอบค่า
+if (!supabaseUrl) {
+  console.error('⚠️ ไม่พบ SUPABASE_URL ใน window.ENV_SUPABASE_URL');
 }
-if (!supabaseAnonKey || supabaseAnonKey.startsWith('%%')) {
-  console.error('⚠️ ไม่พบ SUPABASE_ANON_KEY — ตรวจสอบ Vercel Environment Variables');
+if (!supabaseAnonKey) {
+  console.error('⚠️ ไม่พบ SUPABASE_ANON_KEY ใน window.ENV_SUPABASE_ANON_KEY');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
