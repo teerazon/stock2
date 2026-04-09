@@ -99,10 +99,11 @@
       </button>
     </div>
     <div class="add-custom-section">
-      <p class="add-custom-title">➕ เพิ่มรายการเอง</p>
+      <p class="add-custom-title">➕ เพิ่มรายการจากคลังหรือพิมพ์เอง</p>
       <div class="add-custom-row">
         <input type="text" id="custom-item-name" class="form-input"
-          placeholder="ชื่อสินค้า..." style="flex:2">
+          placeholder="ชื่อสินค้า..." style="flex:2" list="inventory-suggestions">
+        <datalist id="inventory-suggestions"></datalist>
         <input type="number" id="custom-item-qty" class="form-input"
           placeholder="จำนวน" value="1" style="flex:1; width:70px">
         <button class="btn-add-custom" id="btn-add-custom">เพิ่ม</button>
@@ -229,7 +230,8 @@
   import {
     fetchShoppingList, fetchHistory,
     addToList, addCustomItem, markPurchased, removeFromList,
-    clearAllPending, renderShoppingList, renderHistory, exportAsPNG
+    clearAllPending, renderShoppingList, renderHistory, exportAsPNG,
+    updateInventorySuggestions // เพิ่มการนำเข้าฟังก์ชันใหม่
   } from './shopping-list.js';
 
   // State
@@ -286,6 +288,8 @@
       allInventory = await fetchInventory(search);
       renderInventory(allInventory, document.getElementById('inventory-grid'));
       updateStats(allInventory);
+      // เพิ่มบรรทัดนี้เพื่ออัปเดตตัวเลือกในหน้าสั่งซื้อทุกครั้งที่โหลดคลัง
+      updateInventorySuggestions(allInventory); 
     } catch (err) {
       showToast(`❌ โหลดข้อมูลไม่สำเร็จ: ${err.message}`, 'error');
     }
@@ -458,17 +462,34 @@
     } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
   };
 
+  // แก้ไขส่วนเพิ่มรายการเพื่อให้เชื่อมโยงกับรูปภาพในคลังได้ถูกต้อง
   document.getElementById('btn-add-custom').addEventListener('click', async () => {
-    const name = document.getElementById('custom-item-name').value.trim();
-    const qty = parseInt(document.getElementById('custom-item-qty').value) || 1;
+    const nameInput = document.getElementById('custom-item-name');
+    const qtyInput = document.getElementById('custom-item-qty');
+    const name = nameInput.value.trim();
+    const qty = parseInt(qtyInput.value) || 1;
+    
     if (!name) { showToast('กรุณากรอกชื่อสินค้า', 'warning'); return; }
+
     try {
-      await addCustomItem(name, qty);
-      document.getElementById('custom-item-name').value = '';
-      document.getElementById('custom-item-qty').value = '1';
+      // ตรวจสอบว่าชื่อสินค้าที่พิมพ์มีอยู่ในคลังหรือไม่ (เพื่อดึง ID และ URL รูปภาพ)
+      const itemInStock = allInventory.find(i => i.name === name);
+      
+      if (itemInStock) {
+        // หากพบในคลัง ให้ใช้ addToList เพื่อให้ระบบบันทึกรูปภาพลงในประวัติการสั่งซื้อด้วย
+        await addToList(itemInStock.id, qty);
+      } else {
+        // หากไม่พบ ให้เพิ่มเป็นรายการอิสระ (ไม่มีรูปภาพ)
+        await addCustomItem(name, qty);
+      }
+
+      nameInput.value = '';
+      qtyInput.value = '1';
       await loadShoppingList();
       showToast('✅ เพิ่มรายการแล้ว', 'success');
-    } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+    } catch (err) {
+      showToast(`❌ ${err.message}`, 'error');
+    }
   });
 
   document.getElementById('btn-clear-all').addEventListener('click', async () => {

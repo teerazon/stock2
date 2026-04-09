@@ -46,7 +46,6 @@ export async function fetchById(id) {
 
 // ── Create new product ───────────────────────────────────────
 export async function createProduct(productData, imageFile = null) {
-  // Insert product first to get the ID
   const { data, error } = await supabase
     .from('inventory')
     .insert({
@@ -61,7 +60,6 @@ export async function createProduct(productData, imageFile = null) {
 
   if (error) throw error;
 
-  // Upload image if provided
   if (imageFile) {
     const imageUrl = await uploadProductImage(imageFile, data.id);
     const { error: imgError } = await supabase
@@ -139,7 +137,7 @@ export async function fetchLowStock() {
   return data;
 }
 
-// ── Render inventory grid ─────────────────────────────────────
+// ── Render inventory grid (แก้ไขให้แสดงรูปภาพจริง) ──────────────────
 export function renderInventory(items, container) {
   if (!container) return;
 
@@ -162,7 +160,7 @@ export function renderInventory(items, container) {
     <div class="product-card" data-id="${item.id}">
       <div class="product-image-wrap">
         ${item.image_url
-          ? `<img src="${item.image_url}" alt="${item.name}" loading="lazy">`
+          ? `<img src="${item.image_url}" alt="${item.name}" loading="lazy" style="width:100%; height:100%; object-fit:cover;">`
           : `<div class="no-image">🛍️</div>`}
         <span class="stock-badge ${stockClass}">${stockLabel}</span>
       </div>

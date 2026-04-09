@@ -5,6 +5,15 @@
 import { supabase } from './supabase-client.js';
 import { fetchById } from './inventory.js';
 
+// ── เพิ่มฟังก์ชันสร้างรายการตัวเลือกจากคลังสินค้า ─────────────────────
+export function updateInventorySuggestions(inventoryItems) {
+  const datalist = document.getElementById('inventory-suggestions');
+  if (!datalist) return;
+  datalist.innerHTML = inventoryItems
+    .map(item => `<option value="${item.name}">${item.barcode ? `บาร์โค้ด: ${item.barcode}` : `หน่วย: ${item.unit}`}</option>`)
+    .join('');
+}
+
 // ── Fetch shopping list (pending items) ───────────────────────
 export async function fetchShoppingList() {
   const { data, error } = await supabase
@@ -29,12 +38,11 @@ export async function fetchHistory(limit = 50) {
   return data;
 }
 
-// ── Add item to shopping list ────────────────────────────────
+// ── Add item to shopping list (แก้ไขให้บันทึกรูปภาพจากคลัง) ──────────
 export async function addToList(productId, quantityNeeded = 1) {
   const product = await fetchById(productId);
   if (!product) throw new Error('Product not found');
 
-  // Check if already in pending list
   const { data: existing } = await supabase
     .from('shopping_history')
     .select('id, quantity_needed')
@@ -43,7 +51,6 @@ export async function addToList(productId, quantityNeeded = 1) {
     .maybeSingle();
 
   if (existing) {
-    // Update quantity
     const { data, error } = await supabase
       .from('shopping_history')
       .update({ quantity_needed: existing.quantity_needed + quantityNeeded })
@@ -55,13 +62,12 @@ export async function addToList(productId, quantityNeeded = 1) {
     return data;
   }
 
-  // Create new entry
   const { data, error } = await supabase
     .from('shopping_history')
     .insert({
       product_id: productId,
       product_name: product.name,
-      product_image_url: product.image_url,
+      product_image_url: product.image_url, // บันทึกรูปภาพจากคลังสินค้า
       quantity_needed: quantityNeeded,
       unit: product.unit,
       status: 'pending',
@@ -123,7 +129,7 @@ export async function clearAllPending() {
   if (error) throw error;
 }
 
-// ── Render shopping list ──────────────────────────────────────
+// ── Render shopping list (แก้ไขให้แสดงรูปภาพจริง) ────────────────────
 export function renderShoppingList(items, container) {
   if (!container) return;
 
@@ -141,12 +147,12 @@ export function renderShoppingList(items, container) {
     <div class="list-item" data-id="${item.id}">
       <div class="list-item-img">
         ${item.product_image_url
-          ? `<img src="${item.product_image_url}" alt="${item.product_name}">`
+          ? `<img src="${item.product_image_url}" alt="${item.product_name}" style="width:100%; height:100%; object-fit:cover;">`
           : `<div class="list-img-placeholder">🛒</div>`}
       </div>
       <div class="list-item-info">
         <p class="list-item-name">${item.product_name}</p>
-        <p class="list-item-qty">${item.quantity_needed} ${item.unit}</p>
+        <p class="list-item-qty">${item.quantity_needed} ${item.unit || 'ชิ้น'}</p>
         <p class="list-item-time">${formatDateTime(item.created_at)}</p>
       </div>
       <div class="list-item-actions">
@@ -157,7 +163,7 @@ export function renderShoppingList(items, container) {
   `).join('');
 }
 
-// ── Render history ────────────────────────────────────────────
+// ── Render history (แก้ไขให้แสดงรูปภาพจริง) ──────────────────────────
 export function renderHistory(items, container) {
   if (!container) return;
 
@@ -166,7 +172,6 @@ export function renderHistory(items, container) {
     return;
   }
 
-  // Group by date
   const grouped = {};
   items.forEach(item => {
     const date = new Date(item.created_at).toLocaleDateString('th-TH', {
@@ -181,16 +186,15 @@ export function renderHistory(items, container) {
       <h4 class="history-date-header">${date}</h4>
       ${group.map(item => {
         const statusMap = { pending: '🕐 รอซื้อ', purchased: '✅ ซื้อแล้ว', cancelled: '❌ ยกเลิก' };
-        const statusClass = item.status;
         return `
-        <div class="history-row ${statusClass}">
+        <div class="history-row ${item.status}">
           <div class="history-left">
             ${item.product_image_url
-              ? `<img src="${item.product_image_url}" class="history-img" alt="">`
+              ? `<img src="${item.product_image_url}" class="history-img" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:8px;">`
               : `<div class="history-img-placeholder">📦</div>`}
             <div>
               <p class="history-name">${item.product_name}</p>
-              <p class="history-qty">${item.quantity_needed} ${item.unit}</p>
+              <p class="history-qty">${item.quantity_needed} ${item.unit || 'ชิ้น'}</p>
             </div>
           </div>
           <div class="history-right">
@@ -205,7 +209,6 @@ export function renderHistory(items, container) {
 
 // ── Export shopping list as PNG ──────────────────────────────
 export async function exportAsPNG(items) {
-  // Load html2canvas if needed
   if (!window.html2canvas) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
@@ -216,7 +219,6 @@ export async function exportAsPNG(items) {
     });
   }
 
-  // Build the print element
   const el = document.createElement('div');
   el.id = 'export-canvas';
   el.style.cssText = `
@@ -246,22 +248,15 @@ export async function exportAsPNG(items) {
           </div>
           <div style="text-align:right; flex-shrink:0;">
             <p style="margin:0; font-size:18px; font-weight:700; color:#16a34a;">${item.quantity_needed}</p>
-            <p style="margin:0; font-size:12px; color:#6b7280;">${item.unit}</p>
+            <p style="margin:0; font-size:12px; color:#6b7280;">${item.unit || 'ชิ้น'}</p>
           </div>
         </div>
       `).join('')}
     </div>
-    <div style="margin-top:20px; padding-top:16px; border-top:2px solid #e5e7eb; text-align:center;">
-      <p style="margin:0; font-size:13px; color:#9ca3af;">รวม ${items.length} รายการ</p>
-    </div>
   `;
 
   document.body.appendChild(el);
-
-  const canvas = await html2canvas(el, {
-    scale: 2, backgroundColor: '#ffffff', useCORS: true
-  });
-
+  const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
   document.body.removeChild(el);
 
   const link = document.createElement('a');
@@ -270,16 +265,10 @@ export async function exportAsPNG(items) {
   link.click();
 }
 
-// ── Helpers ───────────────────────────────────────────────────
 function formatDateTime(isoStr) {
-  return new Date(isoStr).toLocaleString('th-TH', {
-    day: 'numeric', month: 'short',
-    hour: '2-digit', minute: '2-digit'
-  });
+  return new Date(isoStr).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 function formatTime(isoStr) {
-  return new Date(isoStr).toLocaleTimeString('th-TH', {
-    hour: '2-digit', minute: '2-digit'
-  });
+  return new Date(isoStr).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 }
