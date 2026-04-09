@@ -2,8 +2,6 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // ค่าเหล่านี้ถูก inject โดย build.js จาก Vercel Environment Variables
-const supabaseUrl = window.ENV_SUPABASE_URL;
-const supabaseAnonKey = window.ENV_SUPABASE_ANON_KEY;
 
 // ชื่อ Storage bucket (ต้องตรงกับที่สร้างใน Supabase Storage)
 export const STORAGE_BUCKET = 'product-images';

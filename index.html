@@ -6,6 +6,11 @@
   <title>StockMate – จัดการสต๊อก</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    window.ENV_SUPABASE_URL = "https://hgpvjggbofrftloewfyp.supabase.co";
+    window.ENV_SUPABASE_ANON_KEY = "sb_publishable_AcqEFOZfWy7kYcVASttwNQ_GFyTufJv";
+  </script>
 </head>
 <body>
 
@@ -213,13 +218,6 @@
   <p class="loading-text" id="loading-text">กำลังโหลด...</p>
 </div>
 
-<script>
-  // ── ค่า Supabase จะถูก inject โดย build.js ตอน build ──
-  // หากค่ายังเป็น placeholder แสดงว่ายังไม่ได้ build
-  window.ENV_SUPABASE_URL = "%%SUPABASE_URL%%";
-  window.ENV_SUPABASE_ANON_KEY = "%%SUPABASE_ANON_KEY%%";
-</script>
-
 <script type="module">
   import { supabase, testConnection } from './supabase-client.js';
   import {
@@ -234,15 +232,14 @@
     clearAllPending, renderShoppingList, renderHistory, exportAsPNG
   } from './shopping-list.js';
 
-  // ── State ──────────────────────────────────────────────────
+  // State
   let currentPage = 'inventory';
   let allInventory = [];
   let shoppingItems = [];
   let historyFilter = 'all';
   let searchDebounce = null;
-  let pendingDeleteId = null;
 
-  // ── Toast System ───────────────────────────────────────────
+  // Toast System
   window.showToast = function(message, type = 'info', duration = 3000) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
@@ -263,7 +260,7 @@
     document.getElementById('loading').classList.remove('visible');
   }
 
-  // ── Navigation ─────────────────────────────────────────────
+  // Navigation
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => navigateTo(btn.dataset.page));
   });
@@ -274,13 +271,8 @@
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
     document.getElementById(`page-${page}`).classList.add('active');
     document.querySelector(`[data-page="${page}"]`).classList.add('active');
-
-    const titles = {
-      inventory: 'คลังสินค้า',
-      scanner: 'สแกนบาร์โค้ด',
-      shopping: 'รายการสั่งซื้อ',
-      history: 'ประวัติการซื้อ'
-    };
+    
+    const titles = { inventory: 'คลังสินค้า', scanner: 'สแกนบาร์โค้ด', shopping: 'รายการสั่งซื้อ', history: 'ประวัติการซื้อ' };
     document.getElementById('page-title').textContent = titles[page] || page;
     currentPage = page;
 
@@ -289,7 +281,6 @@
     if (page === 'history') loadHistory();
   }
 
-  // ── Inventory ──────────────────────────────────────────────
   async function loadInventory(search = '') {
     try {
       allInventory = await fetchInventory(search);
@@ -302,14 +293,11 @@
 
   function updateStats(items) {
     document.getElementById('stat-total').textContent = items.length;
-    document.getElementById('stat-low').textContent =
-      items.filter(i => i.quantity > 0 && i.quantity <= i.min_stock).length;
-    document.getElementById('stat-out').textContent =
-      items.filter(i => i.quantity === 0).length;
+    document.getElementById('stat-low').textContent = items.filter(i => i.quantity > 0 && i.quantity <= i.min_stock).length;
+    document.getElementById('stat-out').textContent = items.filter(i => i.quantity === 0).length;
   }
 
-  window.refreshInventory = () => loadInventory(document.getElementById('search-input').value);
-
+  // Event Listeners for Inventory
   document.getElementById('search-input').addEventListener('input', (e) => {
     clearTimeout(searchDebounce);
     searchDebounce = setTimeout(() => loadInventory(e.target.value), 400);
@@ -320,12 +308,6 @@
     showToast('🔄 รีเฟรชแล้ว', 'info', 1500);
   });
 
-  // ── Quick scan button ──────────────────────────────────────
-  document.getElementById('btn-scan-quick').addEventListener('click', () => {
-    navigateTo('scanner');
-  });
-
-  // ── Quantity adjust ────────────────────────────────────────
   window.quickAdjust = async (id, delta) => {
     try {
       await adjustQuantity(id, delta);
@@ -335,62 +317,15 @@
     }
   };
 
-  // ── Add to shopping list from inventory ────────────────────
-  window.addToShoppingList = async (id) => {
-    try {
-      await addToList(id);
-      showToast('🛒 เพิ่มในรายการซื้อแล้ว', 'success');
-    } catch (err) {
-      showToast(`❌ ${err.message}`, 'error');
-    }
-  };
-
-  // ── Confirm Delete ─────────────────────────────────────────
-  window.confirmDelete = (id, name) => {
-    pendingDeleteId = id;
-    document.getElementById('confirm-message').textContent =
-      `คุณต้องการลบ "${name}" ใช่ไหม?`;
-    document.getElementById('confirm-modal').classList.add('visible');
-  };
-
-  window.closeConfirm = () => {
-    document.getElementById('confirm-modal').classList.remove('visible');
-    pendingDeleteId = null;
-  };
-
-  document.getElementById('btn-confirm-delete').addEventListener('click', async () => {
-    if (!pendingDeleteId) return;
-    showLoading('กำลังลบ...');
-    try {
-      await deleteProduct(pendingDeleteId);
-      showToast('🗑️ ลบสินค้าแล้ว', 'success');
-      window.closeConfirm();
-      loadInventory();
-    } catch (err) {
-      showToast(`❌ ${err.message}`, 'error');
-    } finally {
-      hideLoading();
-    }
-  });
-
-  // ── Close Quick Scanner Modal ──────────────────────────────
-  window.closeQuickModal = () => {
-    const modal = document.getElementById('quick-update-modal');
-    modal.classList.remove('visible');
-    modal.innerHTML = '';
-  };
-
-  // ── Product Modal ──────────────────────────────────────────
+  // Product Modal Logic
   let selectedImageFile = null;
-
   document.getElementById('image-file').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
     selectedImageFile = file;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      document.getElementById('image-preview').innerHTML =
-        `<img src="${ev.target.result}" alt="preview">`;
+      document.getElementById('image-preview').innerHTML = `<img src="${ev.target.result}" alt="preview">`;
     };
     reader.readAsDataURL(file);
   });
@@ -398,17 +333,14 @@
   function openProductModal(product = null) {
     selectedImageFile = null;
     document.getElementById('modal-product-id').value = product?.id || '';
-    document.getElementById('modal-title').textContent =
-      product ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่';
+    document.getElementById('modal-title').textContent = product ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่';
     document.getElementById('modal-name').value = product?.name || '';
     document.getElementById('modal-barcode').value = product?.barcode || '';
     document.getElementById('modal-qty').value = product?.quantity ?? '';
     document.getElementById('modal-unit').value = product?.unit || 'ขวด';
     document.getElementById('modal-min-stock').value = product?.min_stock ?? 5;
     const preview = document.getElementById('image-preview');
-    preview.innerHTML = product?.image_url
-      ? `<img src="${product.image_url}" alt="">`
-      : `<div class="img-upload-hint"><span>🖼️</span>แตะเพื่อเลือกรูปภาพ</div>`;
+    preview.innerHTML = product?.image_url ? `<img src="${product.image_url}" alt="">` : `<div class="img-upload-hint"><span>🖼️</span>แตะเพื่อเลือกรูปภาพ</div>`;
     document.getElementById('product-modal').classList.add('visible');
   }
 
@@ -417,21 +349,17 @@
     try {
       const product = await fetchById(id);
       openProductModal(product);
-    } catch (err) {
-      showToast(`❌ ${err.message}`, 'error');
-    } finally {
-      hideLoading();
-    }
+    } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+    finally { hideLoading(); }
   };
 
-  window.closeProductModal = () =>
-    document.getElementById('product-modal').classList.remove('visible');
+  window.closeProductModal = () => document.getElementById('product-modal').classList.remove('visible');
 
   document.getElementById('btn-save-product').addEventListener('click', async () => {
     const id = document.getElementById('modal-product-id').value;
     const name = document.getElementById('modal-name').value.trim();
     if (!name) { showToast('กรุณากรอกชื่อสินค้า', 'warning'); return; }
-
+    
     const productData = {
       name,
       barcode: document.getElementById('modal-barcode').value.trim() || null,
@@ -447,21 +375,18 @@
       showToast('✅ บันทึกสำเร็จ', 'success');
       window.closeProductModal();
       loadInventory();
-    } catch (err) {
-      showToast(`❌ ${err.message}`, 'error');
-    } finally {
-      hideLoading();
-    }
+    } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+    finally { hideLoading(); }
   });
 
-  // ── FAB ────────────────────────────────────────────────────
+  // FAB
   const fab = document.createElement('button');
   fab.className = 'fab';
   fab.innerHTML = '＋';
   fab.onclick = () => openProductModal();
   document.body.appendChild(fab);
 
-  // ── Scanner ────────────────────────────────────────────────
+  // Scanner initialization
   initScanner('reader', async (barcode) => {
     await handleScannedBarcode(barcode, window.showToast);
   });
@@ -471,9 +396,7 @@
       await startScan('reader');
       document.getElementById('btn-start-scan').style.display = 'none';
       document.getElementById('btn-stop-scan').style.display = 'flex';
-    } catch (err) {
-      showToast('❌ เปิดกล้องไม่ได้', 'error');
-    }
+    } catch (err) { showToast('❌ เปิดกล้องไม่ได้', 'error'); }
   };
 
   document.getElementById('btn-stop-scan').onclick = async () => {
@@ -482,103 +405,26 @@
     document.getElementById('btn-stop-scan').style.display = 'none';
   };
 
-  // Manual barcode search
-  document.getElementById('btn-manual-search').addEventListener('click', async () => {
-    const barcode = document.getElementById('manual-barcode').value.trim();
-    if (!barcode) { showToast('กรุณากรอกบาร์โค้ด', 'warning'); return; }
-    showLoading('กำลังค้นหา...');
-    try {
-      await handleScannedBarcode(barcode, window.showToast);
-    } finally {
-      hideLoading();
-    }
-  });
-
-  document.getElementById('manual-barcode').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('btn-manual-search').click();
-  });
-
-  // ── Shopping List ──────────────────────────────────────────
+  // Shopping & History load
   async function loadShoppingList() {
     try {
       shoppingItems = await fetchShoppingList();
       renderShoppingList(shoppingItems, document.getElementById('shopping-list-container'));
-      const hasItems = shoppingItems.length > 0;
-      document.getElementById('export-bar').style.display = hasItems ? 'flex' : 'none';
-      document.getElementById('clear-all-wrap').style.display = hasItems ? 'block' : 'none';
+      document.getElementById('export-bar').style.display = shoppingItems.length ? 'flex' : 'none';
+      document.getElementById('clear-all-wrap').style.display = shoppingItems.length ? 'block' : 'none';
       document.getElementById('export-count').textContent = shoppingItems.length;
-    } catch (err) {
-      showToast(`❌ ${err.message}`, 'error');
-    }
+    } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
   }
 
-  document.getElementById('btn-add-custom').addEventListener('click', async () => {
-    const name = document.getElementById('custom-item-name').value.trim();
-    const qty = parseInt(document.getElementById('custom-item-qty').value) || 1;
-    if (!name) { showToast('กรุณากรอกชื่อสินค้า', 'warning'); return; }
-    try {
-      await addCustomItem(name, qty);
-      showToast(`✅ เพิ่ม "${name}" แล้ว`, 'success');
-      document.getElementById('custom-item-name').value = '';
-      document.getElementById('custom-item-qty').value = '1';
-      loadShoppingList();
-    } catch (err) {
-      showToast(`❌ ${err.message}`, 'error');
-    }
-  });
-
-  document.getElementById('btn-export-png').addEventListener('click', async () => {
-    if (!shoppingItems.length) return;
-    try {
-      await exportAsPNG(shoppingItems);
-    } catch (err) {
-      showToast(`❌ ส่งออกไม่ได้: ${err.message}`, 'error');
-    }
-  });
-
-  document.getElementById('btn-clear-all').addEventListener('click', async () => {
-    if (!confirm('ล้างรายการสั่งซื้อทั้งหมดใช่ไหม?')) return;
-    try {
-      await clearAllPending();
-      showToast('🗑️ ล้างรายการแล้ว', 'success');
-      loadShoppingList();
-    } catch (err) {
-      showToast(`❌ ${err.message}`, 'error');
-    }
-  });
-
-  // Shopping list item actions (called from renderShoppingList)
-  window.checkItem = async (id) => {
-    try {
-      await markPurchased(id);
-      showToast('✅ ซื้อแล้ว!', 'success');
-      loadShoppingList();
-    } catch (err) {
-      showToast(`❌ ${err.message}`, 'error');
-    }
-  };
-
-  window.removeItem = async (id) => {
-    try {
-      await removeFromList(id);
-      showToast('🗑️ ลบออกจากรายการแล้ว', 'info');
-      loadShoppingList();
-    } catch (err) {
-      showToast(`❌ ${err.message}`, 'error');
-    }
-  };
-
-  // ── History ────────────────────────────────────────────────
   async function loadHistory() {
     try {
       let items = await fetchHistory();
       if (historyFilter !== 'all') items = items.filter(i => i.status === historyFilter);
       renderHistory(items, document.getElementById('history-container'));
-    } catch (err) {
-      showToast(`❌ ${err.message}`, 'error');
-    }
+    } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
   }
 
+  // History tab filter
   document.querySelectorAll('.history-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.history-tab').forEach(t => t.classList.remove('active'));
@@ -588,31 +434,102 @@
     });
   });
 
-  // ── Init App ───────────────────────────────────────────────
+  // Shopping list actions
+  window.checkItem = async (id) => {
+    try {
+      await markPurchased(id);
+      await loadShoppingList();
+      showToast('✅ ซื้อแล้ว!', 'success');
+    } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+  };
+
+  window.removeItem = async (id) => {
+    try {
+      await removeFromList(id);
+      await loadShoppingList();
+      showToast('🗑️ ลบออกแล้ว', 'info');
+    } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+  };
+
+  window.addToShoppingList = async (id) => {
+    try {
+      await addToList(id);
+      showToast('🛒 เพิ่มในรายการซื้อแล้ว', 'success');
+    } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+  };
+
+  document.getElementById('btn-add-custom').addEventListener('click', async () => {
+    const name = document.getElementById('custom-item-name').value.trim();
+    const qty = parseInt(document.getElementById('custom-item-qty').value) || 1;
+    if (!name) { showToast('กรุณากรอกชื่อสินค้า', 'warning'); return; }
+    try {
+      await addCustomItem(name, qty);
+      document.getElementById('custom-item-name').value = '';
+      document.getElementById('custom-item-qty').value = '1';
+      await loadShoppingList();
+      showToast('✅ เพิ่มรายการแล้ว', 'success');
+    } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+  });
+
+  document.getElementById('btn-clear-all').addEventListener('click', async () => {
+    try {
+      await clearAllPending();
+      await loadShoppingList();
+      showToast('🗑️ ล้างรายการแล้ว', 'info');
+    } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+  });
+
+  document.getElementById('btn-export-png').addEventListener('click', async () => {
+    try {
+      await exportAsPNG(shoppingItems);
+    } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+  });
+
+  // Delete confirm
+  window.confirmDelete = (id, name) => {
+    document.getElementById('confirm-message').textContent = `ต้องการลบ "${name}" ใช่ไหม?`;
+    document.getElementById('confirm-modal').classList.add('visible');
+    document.getElementById('btn-confirm-delete').onclick = async () => {
+      showLoading();
+      try {
+        await deleteProduct(id);
+        window.closeConfirm();
+        await loadInventory();
+        showToast('🗑️ ลบสำเร็จ', 'success');
+      } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+      finally { hideLoading(); }
+    };
+  };
+  window.closeConfirm = () => document.getElementById('confirm-modal').classList.remove('visible');
+  window.closeQuickModal = () => {
+    const m = document.getElementById('quick-update-modal');
+    m.classList.remove('visible');
+    m.innerHTML = '';
+  };
+
+  window.refreshInventory = () => loadInventory(document.getElementById('search-input').value);
+
+  // Init App
   async function init() {
-    // ตรวจสอบว่า env vars ถูก inject แล้วหรือยัง
-    if (
-      window.ENV_SUPABASE_URL.startsWith('%%') ||
-      window.ENV_SUPABASE_ANON_KEY.startsWith('%%')
-    ) {
+    showLoading('กำลังเชื่อมต่อฐานข้อมูล...');
+    try {
+      const ok = await Promise.race([
+        testConnection(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('หมดเวลาเชื่อมต่อ')), 10000))
+      ]);
+      if (!ok) throw new Error('เชื่อมต่อไม่ได้');
+      await loadInventory();
+    } catch (err) {
+      showToast(`❌ ${err.message}`, 'error');
       document.getElementById('inventory-grid').innerHTML = `
         <div class="empty-state" style="grid-column:1/-1">
           <span class="empty-icon">⚠️</span>
-          <p>ยังไม่ได้ตั้งค่า Environment Variables</p>
-          <p class="sub">กรุณาตั้งค่า SUPABASE_URL และ SUPABASE_ANON_KEY ใน Vercel Dashboard</p>
+          <p>เชื่อมต่อฐานข้อมูลไม่ได้</p>
+          <p class="sub">กรุณาตรวจสอบการตั้งค่า Supabase</p>
         </div>`;
-      return;
-    }
-
-    showLoading('กำลังเชื่อมต่อฐานข้อมูล...');
-    const ok = await testConnection();
-    if (!ok) {
+    } finally {
       hideLoading();
-      showToast('❌ เชื่อมต่อฐานข้อมูลไม่ได้', 'error');
-      return;
     }
-    await loadInventory();
-    hideLoading();
   }
 
   init();
